@@ -93,7 +93,7 @@ with st.sidebar:
         st.success("API Key detected from environment.")
 
     st.divider()
-    top_k = st.slider("Context Chunks to Retrieve (Top-K):", min_value=1, max_value=8, value=6)
+    ttop_k = st.sidebar.slider("Number of retrieved chunks", min_value=2, max_value=12, value=8)
     st.info(f"Total Chunks in Vector Store: **{total_chunks}**")
 
 # Quick Test Buttons
@@ -106,7 +106,7 @@ if "user_query" not in st.session_state:
 if cols[0].button("Aerosol Optical Depth"):
     st.session_state["user_query"] = "What is Aerosol Optical Depth and how do satellites measure it?"
 if cols[1].button("Orbit Tradeoffs"):
-    st.session_state["user_query"] = "Compare geostationary vs. polar-orbiting satellites for air quality tracking."
+    st.session_state.query_text = "Compare geostationary (GEO) vs polar orbiting Low Earth Orbit (LEO) satellites for air quality monitoring temporal and spatial coverage."
 if cols[2].button("Vegetation Wavelengths"):
     st.session_state["user_query"] = "What wavelengths of light are absorbed by healthy vegetation?"
 
