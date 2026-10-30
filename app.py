@@ -33,7 +33,7 @@ total_chunks = collection.count()
 
 # Helper function: Cross-platform Python HTTP transport
 def call_gemini(api_key: str, system_instruction: str, user_prompt: str) -> str:
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key={api_key}"
     payload = {
         "contents": [{"role": "user", "parts": [{"text": f"{system_instruction}\n\n{user_prompt}"}]}],
         "generationConfig": {"temperature": 0.0, "maxOutputTokens": 1000}
@@ -129,7 +129,7 @@ if submitted and query.strip():
                 context_blocks.append(block)
             joined_context = "\n\n".join(context_blocks)
 
-            status_box.write("🤖 Synthesizing answer via Gemini 2.5 Flash...")
+            status_box.write("🤖 Synthesizing answer via Gemini 3.8 Flash...")
 
             system_instruction = (
                 "You are an expert NASA Remote Sensing Operations Assistant. "

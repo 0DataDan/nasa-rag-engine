@@ -83,7 +83,7 @@ def ask_nasa_engine(query: str):
 
     client = genai.Client(api_key=api_key)
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-3.5-flash-lite",
         contents=prompt,
         config=types.GenerateContentConfig(
             system_instruction=system_instruction,
