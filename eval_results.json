@@ -1,0 +1,85 @@
+{
+  "accuracy": 100.0,
+  "results": [
+    {
+      "id": "IN-01",
+      "category": "In-Domain",
+      "query": "What instruments on Terra and Aqua measure Aerosol Optical Depth?",
+      "status": "PASS",
+      "notes": "Correctly retrieved and synthesized in-domain technical concepts.",
+      "answer_preview": "Based on the provided NASA ARSET course materials, MODIS on Terra and Aqua measures Aerosol Optical Depth (e.g., Merged DT/DB Aerosol Optical Depth an..."
+    },
+    {
+      "id": "IN-02",
+      "category": "In-Domain",
+      "query": "What wavelengths of light are absorbed by healthy vegetation?",
+      "status": "PASS",
+      "notes": "Correctly retrieved and synthesized in-domain technical concepts.",
+      "answer_preview": "Based on the provided NASA ARSET course materials, in the visible range, most incoming radiation is absorbed by vegetation through photosynthesis (wit..."
+    },
+    {
+      "id": "IN-03",
+      "category": "In-Domain",
+      "query": "Compare geostationary (GEO) vs polar orbiting Low Earth Orbit (LEO) satellites for air quality monitoring temporal and spatial coverage.",
+      "status": "PASS",
+      "notes": "Correctly retrieved and synthesized in-domain technical concepts.",
+      "answer_preview": "Based on the provided NASA ARSET course materials, the comparison between geostationary (GEO) and Low Earth Orbit (LEO) satellites regarding temporal ..."
+    },
+    {
+      "id": "IN-04",
+      "category": "In-Domain",
+      "query": "What is the difference between Level 2 and Level 3 satellite data products?",
+      "status": "PASS",
+      "notes": "Correctly retrieved and synthesized in-domain technical concepts.",
+      "answer_preview": "Based on the provided NASA ARSET course materials, the differences between Level 2 and Level 3 satellite data products include:  * **Resolution and Gr..."
+    },
+    {
+      "id": "IN-05",
+      "category": "In-Domain",
+      "query": "How does satellite remote sensing complement ground-based in situ air quality monitors?",
+      "status": "PASS",
+      "notes": "Correctly retrieved and synthesized in-domain technical concepts.",
+      "answer_preview": "Based on the provided NASA ARSET course materials, satellite remote sensing complements in-situ air quality monitors by:  * Providing a broader spatia..."
+    },
+    {
+      "id": "OUT-01",
+      "category": "Out-of-Domain Guardrail",
+      "query": "How do lithium-ion batteries function in electric vehicles?",
+      "status": "PASS",
+      "notes": "Correctly triggered negative boundary guardrail.",
+      "answer_preview": "I cannot answer this based on the provided NASA ARSET course materials...."
+    },
+    {
+      "id": "OUT-02",
+      "category": "Out-of-Domain Guardrail",
+      "query": "What are the rules of indoor volleyball scoring?",
+      "status": "PASS",
+      "notes": "Correctly triggered negative boundary guardrail.",
+      "answer_preview": "I cannot answer this based on the provided NASA ARSET course materials...."
+    },
+    {
+      "id": "OUT-03",
+      "category": "Out-of-Domain Guardrail",
+      "query": "Can you provide a recipe for classic Italian tiramisu?",
+      "status": "PASS",
+      "notes": "Correctly triggered negative boundary guardrail.",
+      "answer_preview": "I cannot answer this based on the provided NASA ARSET course materials...."
+    },
+    {
+      "id": "OUT-04",
+      "category": "Out-of-Domain Guardrail",
+      "query": "What is the current corporate tax rate in New York State?",
+      "status": "PASS",
+      "notes": "Correctly triggered negative boundary guardrail.",
+      "answer_preview": "I cannot answer this based on the provided NASA ARSET course materials...."
+    },
+    {
+      "id": "OUT-05",
+      "category": "Out-of-Domain Guardrail",
+      "query": "Who won the FIFA World Cup in 2018 and what was the final score?",
+      "status": "PASS",
+      "notes": "Correctly triggered negative boundary guardrail.",
+      "answer_preview": "I cannot answer this based on the provided NASA ARSET course materials...."
+    }
+  ]
+}
