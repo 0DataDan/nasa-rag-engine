@@ -1,5 +1,4 @@
 NASA ARSET Earth Observation Local RAG Engine
-
 A privacy-centric, strictly grounded Retrieval-Augmented Generation (RAG) system engineered to query and audit NASA Applied Remote Sciences Training (ARSET) course notes across atmospheric remote sensing, aerosol optical depth (AOD), and trace gas monitoring.
 
 Built with an embedded vector store, local transformer-based dense embeddings, a custom REST synthesis client, and an auditable Streamlit evaluation interface.
@@ -8,7 +7,7 @@ System Architecture
 Plaintext
 [ NASA ARSET PDFs ]
         │
-        ▼ (pypdf sliding-window: 500 chars / 100 overlap)
+        ▼ (pypdf / pymupdf text extraction & sliding-window)
 [ Chunked Passages + Page Metadata ]
         │
         ▼ (Sentence-Transformers: all-MiniLM-L6-v2)
@@ -37,7 +36,7 @@ LLM Engine: Google Gemini 3.5 Flash Lite (Low-latency structured REST transport)
 
 Frontend / Evaluation UI: Streamlit
 
-Document Parsing: PyPDF (Custom chunker preserving document and page provenance)
+Document Parsing: PyMuPDF / LangChain Text Splitters
 
 Environment Security: python-dotenv (Zero hardcoded secrets; persistent .env injection)
 
@@ -73,13 +72,13 @@ macOS / Linux / Windows
 
 Python 3.10+
 
-A valid Gemini API Key
+A valid Google Gemini API Key
 
 Installation
 Clone the repository:
 
 Bash
-git clone https://github.com/YOUR_USERNAME/nasa-rag-engine.git
+git clone https://github.com/0DataDan/nasa-rag-engine.git
 cd nasa-rag-engine
 Set up a virtual environment:
 
@@ -97,12 +96,14 @@ Create a .env file in the root directory:
 
 Bash
 echo 'GEMINI_API_KEY="your_api_key_here"' > .env
-Initialize or Append Data:
-Place PDF course notes in the Data/ directory and run:
+Build the Local Vector Index:
+Course notes are pre-loaded in the data/ directory. Run the indexing pipeline to generate embeddings and populate the local ChromaDB store:
 
 Bash
-python add_pdf.py "Data/NASA_ARSET_Course_Notes.pdf"
-Launch the Streamlit Engine:
+python build_index.py
+(Note: The first run downloads the ~90MB all-MiniLM-L6-v2 embedding weights from Hugging Face).
+
+Launch the Evaluation App:
 
 Bash
 streamlit run app.py
