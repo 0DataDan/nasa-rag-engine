@@ -13,20 +13,39 @@ st.set_page_config(
     layout="wide"
 )
 
-# 1. Connect to ChromaDB with defensive guard
+# 1. Connect to ChromaDB with automatic cloud cold-start indexing
 @st.cache_resource
 def load_chroma():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     db_folder = os.path.join(current_dir, "chroma_db")
+    data_folder = os.path.join(current_dir, "data")
 
     client = chromadb.PersistentClient(path=db_folder)
     embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(
         model_name="all-MiniLM-L6-v2"
     )
-    return client.get_or_create_collection(
+    col = client.get_or_create_collection(
         name="nasa_remote_sensing",
         embedding_function=embedding_fn
     )
+
+    # Cold-start: if running on Cloud and DB is empty, index files in data/
+    if col.count() == 0 and os.path.exists(data_folder):
+        from ingest import process_pdf_folder
+        chunks = process_pdf_folder(data_folder, chunk_size=600, chunk_overlap=120)
+        if chunks:
+            docs = [c["text"] for c in chunks]
+            ids = [c["chunk_id"] for c in chunks]
+            metas = [c["metadata"] for c in chunks]
+            batch_size = 100
+            for i in range(0, len(chunks), batch_size):
+                col.upsert(
+                    documents=docs[i:i + batch_size],
+                    ids=ids[i:i + batch_size],
+                    metadatas=metas[i:i + batch_size]
+                )
+
+    return col
 
 collection = load_chroma()
 total_chunks = collection.count()
