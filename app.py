@@ -93,7 +93,7 @@ with st.sidebar:
         st.success("API Key detected from environment.")
 
     st.divider()
-    top_k = st.sidebar.slider("Number of retrieved chunks", min_value=2, max_value=12, value=8)
+    top_k = st.sidebar.slider("Number of retrieved chunks", min_value=2, max_value=16, value=12)
     st.info(f"Total Chunks in Vector Store: **{total_chunks}**")
 
 # Quick Test Buttons
