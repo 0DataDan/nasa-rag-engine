@@ -9,6 +9,7 @@ The application couples vector search with strict zero-temperature LLM grounding
 ![ChromaDB](https://img.shields.io/badge/Vector%20Store-ChromaDB-purple.svg)
 ![Gemini 3.5 Flash Lite](https://img.shields.io/badge/Inference-Gemini--3.5--flash--lite-orange.svg)
 ![Evaluation Benchmark](https://img.shields.io/badge/Benchmark-100%25%20Passed-brightgreen.svg)
+![NASA ARSET RAG Demo](demo.gif)
 
 ---
 
