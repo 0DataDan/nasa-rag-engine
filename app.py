@@ -105,10 +105,15 @@ if "user_query" not in st.session_state:
 
 if cols[0].button("Aerosol Optical Depth"):
     st.session_state["user_query"] = "What is Aerosol Optical Depth and how do satellites measure it?"
+    st.rerun()
+
 if cols[1].button("Orbit Tradeoffs"):
-    st.session_state.query_text = "Compare geostationary (GEO) vs polar orbiting Low Earth Orbit (LEO) satellites for air quality monitoring temporal and spatial coverage."
+    st.session_state["user_query"] = "Compare geostationary (GEO) vs polar orbiting Low Earth Orbit (LEO) satellites for air quality monitoring temporal and spatial coverage."
+    st.rerun()
+
 if cols[2].button("Vegetation Wavelengths"):
     st.session_state["user_query"] = "What wavelengths of light are absorbed by healthy vegetation?"
+    st.rerun()
 
 # Query Input Form
 with st.form("query_form"):
