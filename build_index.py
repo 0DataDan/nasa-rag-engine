@@ -27,21 +27,37 @@ def build_vector_store():
         model_name="all-MiniLM-L6-v2"
     )
 
+    collection = client.get_or_create_collection(
+        name="nasa_remote_sensing",
+        embedding_function=embedding_fn
+    )
 
-   )
-  model_name="all-MiniLM-L6-v2"
-.Selectio.Selectio.Selectio.Selectio.Selesing",
-.Selectio.Selectio.unction.Selectio.Selectio.unction.Selectio.Selectio.unction.Sen chun.Selectio.Selectio.unction.Selectio.Selectio.unct me.Selectio.Selectio.unction.Selectio.Selectio.unctint(f"[.Selectio.Selectio.unction.Selecexing {l.Selectio.Selectio.unction.Selectio.Sele  print("    (Initial run may take 30-60 seconds while embedding weights are verified)...")
+    documents = [c["text"] for c in chunks]
+    ids = [c["chunk_id"] for c in chunks]
+    metadatas = [c["metadata"] for c in chunks]
 
-    # Use upsert to safely ov  write existing    # Use upsert to safely ov  write existing    # Use uon.up    # Use upsert to safely ov  write existing    # Use upsert to safely ov atas
+    print(f"[*] Generating embeddings and indexing {len(chunks)} chunks into ChromaDB...")
+    print("    (Initial run may take 30-60 seconds while embedding weights are verified)...")
+
+    collection.upsert(
+        documents=documents,
+        ids=ids,
+        metadatas=metadatas
     )
 
     print(f"[+] Success! {collection.count()} chunks are now indexed and stored persistently.")
 
-    test_query = "What inst    test_query = "What inst    test_query = "What inst    test_query[*] Running sanity test search with query:")
-    print(f"    '{    print(f"    '{    print(f"    '{    print(f"    '{    print(f"  [test_que    print(f"    '{    pri    )
+    test_query = "What instruments or satellites measure aerosol optical depth?"
+    print(f"\n[*] Running sanity test search with query:")
+    print(f"    '{test_query}'")
 
-    if results and results.get("documents") and res    if results and results.get("documents- TOP RETRIEVED RESULT ---")
+    results = collection.query(
+        query_texts=[test_query],
+        n_results=2
+    )
+
+    if results and results.get("documents") and results["documents"][0]:
+        print("\n--- TOP RETRIEVED RESULT ---")
         print(f"Source   : {results['metadatas'][0][0]['source']} (Page {results['metadatas'][0][0]['page']})")
         print(f"Chunk ID : {results['ids'][0][0]}")
         print(f"Snippet  :\n\"{results['documents'][0][0][:280]}...\"")
