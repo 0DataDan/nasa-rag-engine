@@ -1,75 +1,148 @@
-# NASA ARSET Technical Document Engine (Grounded RAG)
+# 🛰️ NASA ARSET Grounded RAG & Technical Study Deck
 
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://share.streamlit.io/0datadan/nasa-rag-engine/main/app.py)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
-[![ChromaDB](https://img.shields.io/badge/Vector%20Store-ChromaDB-orange.svg)](https://www.trychroma.com/)
-[![Gemini](https://img.shields.io/badge/LLM-Gemini%203.5%20Flash%20Lite-green.svg)](https://ai.google.dev/)
+An end-to-end, production-grade Retrieval-Augmented Generation (RAG) platform and visual study suite built over NASA Applied Remote Sensing Training (ARSET) course materials.
 
-An enterprise-grade, retrieval-augmented generation (RAG) system engineered to query, synthesize, and audit dense technical course materials from NASA's Applied Remote Sensing Training (ARSET) program.
+The application couples vector search with strict zero-temperature LLM grounding to deliver slide-level citations, zero-hallucination guardrails, and an interactive flashcard learning layer for Earth Observation concepts.
 
-Built with strict boundary guardrails, dual-column source traceability, and automated cold-start cloud vector indexing.
-
----
-
-## System Architecture
-
-[ NASA ARSET PDFs ]
-│
-▼ (PyPDF / Slicing)
-[ Sliding-Window Chunking (600 chars, 120 overlap) ]
-│
-▼ (all-MiniLM-L6-v2)
-[ ChromaDB Vector Store ] ── (Cosine Similarity, k=12) ──┐
-│
-[ Technical User Query ] ───────────────────────────────┤
-▼
-[ Context Injection & Strict Guardrails ]
-│
-▼ (gemini-3.5-flash-lite)
-[ Grounded Answer + Slide Excerpt Audit ]
----
-
-## Key Engineering Decisions
-
-### 1. Zero-Hallucination Grounding & Refusal Guardrails
-Technical remote sensing data (e.g., aerosol optical depth, orbital mechanics, trace gas spectrometry) cannot tolerate generative hallucination. 
-- **System Instruction:** Constrains generation strictly to retrieved context passages.
-- **Out-of-Domain Detection:** Explicit refusal trigger (`"I cannot answer this based on the provided NASA ARSET course materials."`) whenever input falls outside indexed slides.
-- **Audit Traceability:** Side-by-side UI audit showing exact document names, page/slide numbers, and raw cosine match excerpts.
-
-### 2. Retrieval Depth Parameter Tuning ($k=6 \rightarrow k=12$)
-Cross-cutting queries (such as comparing Geostationary Earth Orbit [GEO] vs. Low Earth Orbit [LEO] sensor capabilities) require drawing facts across disparate slide decks and modules. 
-- Initial testing with bi-encoder cosine similarity at $k=6$ captured general introductory passages but omitted secondary orbital definitions.
-- Expanding baseline retrieval depth to **$k=12$** guaranteed full conceptual recall across multi-document boundaries while staying well within the context window limits.
-
-### 3. Ephemeral Cloud Cold-Start Ingestion
-Deploying RAG systems to containerized cloud platforms (such as Streamlit Community Cloud) typically causes vector store failure because `.chromadb/` directories are excluded via `.gitignore`.
-- Designed an automated cold-start hook in `app.py` that detects empty collections on boot.
-- Triggers an automated, batched ingestion pipeline over source PDFs directly in ephemeral storage, ensuring zero-configuration cloud spins.
-
-### 4. Production Inference Tier Stabilization
-Standardized all inference calls across CLI and UI on **`gemini-3.5-flash-lite`** with zero temperature ($T=0.0$), eliminating transient server-demand capacity issues (503s) and ensuring consistent token pricing and deterministic outputs.
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://share.streamlit.io)
+![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)
+![ChromaDB](https://img.shields.io/badge/Vector%20Store-ChromaDB-purple.svg)
+![Gemini 3.5 Flash Lite](https://img.shields.io/badge/Inference-Gemini--3.5--flash--lite-orange.svg)
+![Evaluation Benchmark](https://img.shields.io/badge/Benchmark-100%25%20Passed-brightgreen.svg)
 
 ---
 
-## Repository Structure
+## 🌟 Key Features
 
-```text
-nasa-rag-engine/
-├── data/                       # NASA ARSET slide deck source PDFs
-├── app.py                      # Production Streamlit UI with dual-column audit view
-├── query_engine.py             # CLI query runner and context retrieval module
-├── build_index.py              # Standalone ingestion and embedding pipeline
-├── ingest.py                   # PDF text extraction and sliding-window chunking
-├── requirements.txt            # Locked runtime dependencies
-└── README.md                   # System documentation and architecture breakdown
-Local Setup & Quickstart1. Clone & Set Up EnvironmentBashgit clone [https://github.com/0DataDan/nasa-rag-engine.git](https://github.com/0DataDan/nasa-rag-engine.git)
-cd nasa-rag-engine
+### 1. Grounded Document QA Engine (Tab 1)
+- **Strict Guardrails:** Configured with a zero-temperature system prompt that restricts inference strictly to retrieved context passages.
+- **Slide-Level Traceability:** Generates technical synthesis alongside side-by-side expandable inspect panels showing raw document chunks, source file names, and slide page numbers.
+- **Negative Boundary Adherence:** Programmed refusal response (*"I cannot answer this based on the provided NASA ARSET course materials."*) prevents hallucinations when queries fall outside the document domain.
+
+### 2. Interactive Study Deck (Tab 2)
+- **Visual Concept Cards:** State-managed interactive flashcards breaking down complex Earth Observation topics (orbital tradeoffs, aerosol optical depth, spectrometry, and data processing tiers).
+- **Cognitive Load Reduction:** Replaces dense technical slide text with modular summaries: *Core Principle*, *Key Parameters & Metrics*, and *Operational Applications*.
+- **Progress Tracking:** Dynamic progress bars and stateful card flipping via Streamlit session state.
+
+### 3. Ephemeral Cold-Start Ingestion
+- Automatically checks ChromaDB vector store health on launch.
+- If deployed in a fresh, ephemeral container (e.g., Streamlit Cloud reboot), the system triggers automated ingestion and indexing from `data/` before serving user queries.
+
+---
+
+## 🏗️ System Architecture
+
+                              +-----------------------------+
+                              |   NASA ARSET Slide Decks    |
+                              |         (PDF Format)        |
+                              +--------------+--------------+
+                                             |
+                                             v
+                              +-----------------------------+
+                              | PyMuPDF Extraction & Chunk  |
+                              | (600 chars, 120 overlap)    |
+                              +--------------+--------------+
+                                             |
+                                             v
+                              +-----------------------------+
+                              | sentence-transformers       |
+                              |     (all-MiniLM-L6-v2)      |
+                              +--------------+--------------+
+                                             |
+                                             v
+                              +-----------------------------+
+                              |     ChromaDB Vector Store   |
+                              +--------------+--------------+
+                                             |
+               User Query                    | Retrieval (k=12)
+                    |                        v
+                    +-------------> [ Context Synthesis ]
+                                             |
+                                             v
+                              +-----------------------------+
+                              |   Gemini 3.5 Flash Lite     |
+                              |   (T=0.0 Grounded Prompt)   |
+                              +--------------+--------------+
+                                             |
+                                             v
+                              +-----------------------------+
+                              | Streamlit Dual-Tab Engine   |
+                              | • QA + Source Chunks        |
+                              | • Visual Flashcard Deck     |
+                              +-----------------------------+
+
+---
+
+## 📊 Automated Evaluation Suite (`eval_engine.py`)
+
+The engine is benchmarked against a 10-query automated evaluation harness testing retrieval depth ($k=12$), keyword recall, citation fidelity, and negative guardrail enforcement:
+
+| Test ID | Category | Target Evaluation Query | Result | Verification Notes |
+| :--- | :--- | :--- | :---: | :--- |
+| **IN-01** | In-Domain | Terra/Aqua instruments measuring Aerosol Optical Depth | **PASS** | Successfully extracted `MODIS` sensor grounding. |
+| **IN-02** | In-Domain | Wavelengths absorbed by healthy green vegetation | **PASS** | Captured blue/red chlorophyll absorption mechanisms. |
+| **IN-03** | In-Domain | LEO vs. GEO orbit tradeoffs for air quality monitoring | **PASS** | Synthesized spatial coverage vs. temporal revisit. |
+| **IN-04** | In-Domain | Level 2 vs. Level 3 satellite data product differences | **PASS** | Differentiated swath telemetry from gridded products. |
+| **IN-05** | In-Domain | Satellites vs. in-situ air quality monitors | **PASS** | Accurately mapped mass filters vs. optical column depth. |
+| **OUT-01** | Negative Control | EV lithium-ion battery mechanisms | **PASS** | Correctly triggered out-of-domain refusal guardrail. |
+| **OUT-02** | Negative Control | Indoor volleyball scoring rules | **PASS** | Correctly triggered out-of-domain refusal guardrail. |
+| **OUT-03** | Negative Control | Classic Italian tiramisu recipe | **PASS** | Correctly triggered out-of-domain refusal guardrail. |
+| **OUT-04** | Negative Control | New York State corporate tax rates | **PASS** | Correctly triggered out-of-domain refusal guardrail. |
+| **OUT-05** | Negative Control | 2018 FIFA World Cup final outcome | **PASS** | Correctly triggered out-of-domain refusal guardrail. |
+
+**Benchmark Score: 10/10 Passed (100.0%)**  
+Full audit logs are programmatically recorded in `eval_results.json`.
+
+---
+
+## 🛠️ Tech Stack
+
+- **Application Framework:** Streamlit
+- **Vector Database:** ChromaDB
+- **Embedding Model:** `sentence-transformers/all-MiniLM-L6-v2` (PyTorch)
+- **Large Language Model:** Google Gemini 3.5 Flash Lite (`google-genai` SDK)
+- **PDF Extraction:** PyMuPDF (`fitz`)
+- **Evaluation:** Custom programmatic test harness (`eval_engine.py`)
+
+---
+
+## 🚀 Local Installation & Setup
+
+1. **Clone repository:**
+   ```bash
+   git clone [https://github.com/0DataDan/nasa-rag-engine.git](https://github.com/0DataDan/nasa-rag-engine.git)
+   cd nasa-rag-engine
+Set up virtual environment:
+
+Bash
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-2. Configure Environment KeysCreate a .env file in the root directory:BashGEMINI_API_KEY="your_actual_gemini_api_key"
-3. Build Vector StoreBashpython build_index.py
-4. Run the EngineCommand Line Interface:Bashpython query_engine.py "What instruments on Terra and Aqua measure Aerosol Optical Depth?"
-Interactive Web Application:Bashstreamlit run app.py
-Example Queries to TestQuery CategorySample PromptExpected System BehaviorSpectral Analysis"What wavelengths of light are absorbed by healthy vegetation?"Retrieves visible/NIR slide passages with chlorophyll absorption bands.Mission Specs"What instruments measure Aerosol Optical Depth?"Identifies MODIS (Aqua/Terra) and MAIAC algorithms with slide citations.Orbital Mechanics"Compare GEO vs LEO satellites for air quality tracking."Synthesizes temporal frequency vs. spatial resolution tradeoffs across modules.Negative Boundary"How do lithium-ion batteries function in electric vehicles?"Triggers refusal guardrail without generating synthetic facts.
+Configure API Key:
+Create a .env file in the project root:
+
+Code snippet
+GEMINI_API_KEY=your_gemini_api_key_here
+Run the Application:
+
+Bash
+streamlit run app.py
+Run the Automated Evaluation Benchmark:
+
+Bash
+python eval_engine.py
+
+---
+
+### Step 3: Save, Commit, and Push
+
+In TextEdit:
+1. Press **`Cmd + S`** to save.
+2. Press **`Cmd + Q`** to close.
+
+In your Terminal, run:
+
+```bash
+git add README.md
+git commit -m "Update README with dual-tab UI, system architecture, and 100% benchmark results"
+git push origin main
