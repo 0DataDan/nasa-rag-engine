@@ -1,26 +1,39 @@
 import os
+from dotenv import load_dotenv
+load_dotenv()
+
 import chromadb
 from chromadb.utils import embedding_functions
 from google import genai
 from google.genai import types
 
 def get_chroma_collection():
-    """Connects to the existing persistent ChromaDB store."""
+    """Connects to the persistent ChromaDB store."""
     current_dir = os.path.dirname(os.path.abspath(__file__))
     db_folder = os.path.join(current_dir, "chroma_db")
+
+    if not os.path.exists(db_folder):
+        raise FileNotFoundError(
+            f"Database directory '{db_folder}' not found. Run 'python build_index.py' first."
+        )
 
     client = chromadb.PersistentClient(path=db_folder)
     embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(
         model_name="all-MiniLM-L6-v2"
     )
 
-    return client.get_collection(
-        name="nasa_remote_sensing",
-        embedding_function=embedding_fn
-    )
+    try:
+        return client.get_collection(
+            name="nasa_remote_sensing",
+            embedding_function=embedding_fn
+        )
+    except Exception:
+        raise ValueError(
+            "Collection 'nasa_remote_sensing' not found. Run 'python build_index.py' to generate the index."
+        )
 
-def retrieve_context(query: str, n_results: int = 4):
-    """Retrieves the top n most relevant chunks and formats them with citations."""
+def retrieve_context(query: str, n_results: int = 6):
+    """Retrieves top-N relevant chunks and formats them with source citations."""
     collection = get_chroma_collection()
     results = collection.query(
         query_texts=[query],
@@ -28,17 +41,14 @@ def retrieve_context(query: str, n_results: int = 4):
     )
 
     formatted_context_blocks = []
-    
     docs = results["documents"][0]
     metas = results["metadatas"][0]
-    ids = results["ids"][0]
 
     for i in range(len(docs)):
         source = metas[i]["source"]
         page = metas[i]["page"]
-        chunk_text = docs[i]
-        
-        block = f"\n{chunk_text}"
+        chunk_text = docs[i].strip()
+        block = f"[{source} p.{page}]: {chunk_text}"
         formatted_context_blocks.append(block)
 
     joined_context = "\n\n---\n\n".join(formatted_context_blocks)
@@ -49,41 +59,35 @@ def ask_nasa_engine(query: str):
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         print("[!] GEMINI_API_KEY environment variable is not set.")
-        print("    Run: export GEMINI_API_KEY='your_key_here' in your terminal.")
+        print("    Add it to your .env file: GEMINI_API_KEY='your_key'")
         return
 
-    # 1. Retrieve the top 4 relevant passages
-    context_text, raw_results = retrieve_context(query, n_results=4)
+    try:
+        context_text, raw_results = retrieve_context(query, n_results=6)
+    except Exception as e:
+        print(f"[!] Retrieval error: {e}")
+        return
 
-    # 2. Strict system instructions enforcing grounding and citation rules
-    system_instruction = """
-You are an expert NASA Remote Sensing and Earth Observation Operations Assistant.
-Your task is to answer technical questions accurately and concisely using ONLY the provided excerpts.
+    system_instruction = (
+        "You are an expert NASA Remote Sensing and Earth Observation Operations Assistant. "
+        "Your task is to answer technical questions accurately and concisely using ONLY the provided excerpts.\n\n"
+        "STRICT GROUNDING PROTOCOL:\n"
+        "1. Base your answer EXCLUSIVELY on the provided context excerpts. Do not infer, extrapolate, or use external knowledge.\n"
+        "2. If the excerpts do not contain sufficient evidence to answer the question, state:\n"
+        "   'I cannot answer this based on the provided NASA ARSET course materials.'\n"
+        "3. Every factual claim or technical parameter MUST include an inline citation citing the document and page (e.g., [NASA_ARSET_Course_Notes2.pdf p.8]).\n"
+        "4. Maintain a clear, professional technical tone."
+    )
 
-STRICT GROUNDING PROTOCOL:
-1. Base your answer EXCLUSIVELY on the provided context excerpts. Do not infer, extrapolate, or use external knowledge.
-2. If the excerpts do not contain sufficient evidence to answer the question, state:
-   "I cannot answer this based on the provided NASA ARSET course materials."
-3. Every factual claim or technical parameter MUST include an inline citation citing the document and page from the context tag (e.g.,).
-4. Maintain a clear, professional technical tone.
-"""
-
-    prompt = f"""
-CONTEXT EXCERPTS:
-{context_text}
-
-USER QUESTION:
-{query}
-"""
+    prompt = f"CONTEXT EXCERPTS:\n{context_text}\n\nUSER QUESTION:\n{query}"
 
     client = genai.Client(api_key=api_key)
-
     response = client.models.generate_content(
-        model="gemini-flash-latest",
+        model="gemini-2.5-flash",
         contents=prompt,
         config=types.GenerateContentConfig(
             system_instruction=system_instruction,
-            temperature=0.0  # Set to 0.0 for deterministic, strictly factual output
+            temperature=0.0
         )
     )
 
@@ -98,12 +102,10 @@ USER QUESTION:
 
 if __name__ == "__main__":
     import sys
-    
-    # Allow passing a query from terminal or use a default test query
     if len(sys.argv) > 1:
         user_query = " ".join(sys.argv[1:])
     else:
         user_query = "What is Aerosol Optical Depth and how do satellites measure it?"
-        
+
     print(f"[*] Query: '{user_query}'")
     ask_nasa_engine(user_query)

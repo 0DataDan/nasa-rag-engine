@@ -1,77 +1,66 @@
 import os
 from dotenv import load_dotenv
 load_dotenv()
-import json
-import subprocess
+
+import requests
 import streamlit as st
 import chromadb
 from chromadb.utils import embedding_functions
 
-# Streamlit Page Setup
 st.set_page_config(
     page_title="NASA ARSET Retrieval Engine",
     page_icon="🛰️",
     layout="wide"
 )
 
-# 1. Connect to ChromaDB
+# 1. Connect to ChromaDB with defensive guard
 @st.cache_resource
 def load_chroma():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     db_folder = os.path.join(current_dir, "chroma_db")
-    
+
     client = chromadb.PersistentClient(path=db_folder)
     embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(
         model_name="all-MiniLM-L6-v2"
     )
-    return client.get_collection(
+    return client.get_or_create_collection(
         name="nasa_remote_sensing",
         embedding_function=embedding_fn
     )
 
 collection = load_chroma()
+total_chunks = collection.count()
 
-# Helper function: Call Gemini REST API using HTTP/1.1 curl transport
-def call_gemini(api_key, system_instruction, user_prompt):
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key={api_key}"
-    
+# Helper function: Cross-platform Python HTTP transport
+def call_gemini(api_key: str, system_instruction: str, user_prompt: str) -> str:
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
     payload = {
         "contents": [{"role": "user", "parts": [{"text": f"{system_instruction}\n\n{user_prompt}"}]}],
-        "generationConfig": {"temperature": 0.0, "maxOutputTokens": 800}
+        "generationConfig": {"temperature": 0.0, "maxOutputTokens": 1000}
     }
+    headers = {"Content-Type": "application/json"}
     
-    cmd = [
-        "curl",
-        "--http1.1",
-        "-s",
-        "-S",
-        "--connect-timeout", "15",
-        "--max-time", "45",
-        "-X", "POST",
-        url,
-        "-H", "Content-Type: application/json",
-        "-d", json.dumps(payload)
-    ]
-    
-    res = subprocess.run(cmd, capture_output=True, text=True)
-    if res.returncode != 0:
-        raise Exception(f"Transport error: {res.stderr}")
-        
-    data = json.loads(res.stdout)
-    if "error" in data:
-        raise Exception(f"API Error ({data['error'].get('code')}): {data['error'].get('message')}")
-        
+    resp = requests.post(url, json=payload, headers=headers, timeout=45)
+    data = resp.json()
+
+    if resp.status_code != 200 or "error" in data:
+        err_msg = data.get("error", {}).get("message", resp.text)
+        raise Exception(f"API Error ({resp.status_code}): {err_msg}")
+
     return data["candidates"][0]["content"]["parts"][0]["text"]
 
 # 2. UI Layout & Header
 st.title("🛰️ NASA ARSET Technical Retrieval Engine")
 st.caption("A Grounded Retrieval-Augmented Generation (RAG) System indexed on NASA ARSET Remote Sensing & Air Quality Curricula.")
 
+if total_chunks == 0:
+    st.warning("⚠️ The vector database is currently empty. Please run `python build_index.py` in your terminal to index the NASA ARSET course materials.")
+
 # Sidebar Configuration
 with st.sidebar:
     st.header("Engine Configuration")
     api_key = os.environ.get("GEMINI_API_KEY", "")
-    
+
     if not api_key:
         api_key_input = st.text_input("Enter Gemini API Key:", type="password")
         if api_key_input:
@@ -83,10 +72,10 @@ with st.sidebar:
     else:
         active_api_key = api_key
         st.success("API Key detected from environment.")
-        
+
     st.divider()
     top_k = st.slider("Context Chunks to Retrieve (Top-K):", min_value=1, max_value=8, value=6)
-    st.info(f"Total Chunks in Vector Store: **{collection.count()}**")
+    st.info(f"Total Chunks in Vector Store: **{total_chunks}**")
 
 # Quick Test Buttons
 st.write("##### Quick Test Queries:")
@@ -105,7 +94,7 @@ if cols[2].button("Vegetation Wavelengths"):
 # Query Input Form
 with st.form("query_form"):
     query = st.text_input(
-        "Ask a technical remote sensing question:", 
+        "Ask a technical remote sensing question:",
         value=st.session_state["user_query"],
         placeholder="e.g., How does the TEMPO mission monitor atmospheric pollutants?"
     )
@@ -117,6 +106,8 @@ if submitted and query.strip():
 
     if not active_api_key:
         st.error("Please provide a valid Gemini API Key to run synthesis.")
+    elif total_chunks == 0:
+        st.error("Vector database contains 0 chunks. Run `python build_index.py` first.")
     else:
         status_box = st.status("Processing query...", expanded=True)
         try:
@@ -125,21 +116,21 @@ if submitted and query.strip():
                 query_texts=[query],
                 n_results=top_k
             )
-            
+
             docs = results["documents"][0]
             metas = results["metadatas"][0]
             ids = results["ids"][0]
-            
+
             status_box.write(f"📄 Retrieved {len(docs)} relevant passages from NASA notes.")
-            
+
             context_blocks = []
             for i in range(len(docs)):
                 block = f"[{metas[i]['source']} p.{metas[i]['page']}]: {docs[i].strip()}"
                 context_blocks.append(block)
             joined_context = "\n\n".join(context_blocks)
-            
-            status_box.write("🤖 Synthesizing answer via Gemini 3.5 Flash Lite...")
-            
+
+            status_box.write("🤖 Synthesizing answer via Gemini 2.5 Flash...")
+
             system_instruction = (
                 "You are an expert NASA Remote Sensing Operations Assistant. "
                 "Answer the user's question concisely using ONLY the provided excerpts. "
@@ -148,18 +139,17 @@ if submitted and query.strip():
             )
 
             user_prompt = f"EXCERPTS:\n{joined_context}\n\nQUESTION: {query}"
-
             answer_text = call_gemini(active_api_key, system_instruction, user_prompt)
-            
+
             status_box.update(label="Complete!", state="complete", expanded=False)
 
-            # Display Two-Column Layout
+            # Two-Column Layout
             col_ans, col_sources = st.columns([3, 2])
-            
+
             with col_ans:
                 st.subheader("Grounded Synthesis")
                 st.markdown(answer_text)
-                
+
             with col_sources:
                 st.subheader("Source Excerpt Audit")
                 st.caption("Raw passages retrieved from ChromaDB:")
