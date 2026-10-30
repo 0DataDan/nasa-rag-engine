@@ -1,109 +1,75 @@
-NASA ARSET Earth Observation Local RAG Engine
-A privacy-centric, strictly grounded Retrieval-Augmented Generation (RAG) system engineered to query and audit NASA Applied Remote Sciences Training (ARSET) course notes across atmospheric remote sensing, aerosol optical depth (AOD), and trace gas monitoring.
+# NASA ARSET Technical Document Engine (Grounded RAG)
 
-Built with an embedded vector store, local transformer-based dense embeddings, a custom REST synthesis client, and an auditable Streamlit evaluation interface.
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://share.streamlit.io/0datadan/nasa-rag-engine/main/app.py)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
+[![ChromaDB](https://img.shields.io/badge/Vector%20Store-ChromaDB-orange.svg)](https://www.trychroma.com/)
+[![Gemini](https://img.shields.io/badge/LLM-Gemini%203.5%20Flash%20Lite-green.svg)](https://ai.google.dev/)
 
-System Architecture
-Plaintext
+An enterprise-grade, retrieval-augmented generation (RAG) system engineered to query, synthesize, and audit dense technical course materials from NASA's Applied Remote Sensing Training (ARSET) program.
+
+Built with strict boundary guardrails, dual-column source traceability, and automated cold-start cloud vector indexing.
+
+---
+
+## System Architecture
+
 [ NASA ARSET PDFs ]
-        │
-        ▼ (pypdf / pymupdf text extraction & sliding-window)
-[ Chunked Passages + Page Metadata ]
-        │
-        ▼ (Sentence-Transformers: all-MiniLM-L6-v2)
-[ 384-Dimensional Dense Embeddings ]
-        │
-        ▼
-[ ChromaDB Persistent Vector Store ] ── (Cosine Distance Top-K) ──┐
-                                                                   │
-[ User Technical Query ] ── (Dense Encoding) ──────────────────────┤
-                                                                   ▼
-                                                       [ Context Injection ]
-                                                                   │
-                                                                   ▼
-                                                    [ Gemini 3.5 Flash Lite ]
-                                                    (Strict Grounding Policy)
-                                                                   │
-                                                                   ▼
-                                                      [ Auditable Response ]
-                                                   + Page-Level Source Citations
-Core Technical Stack
-Vector Store: ChromaDB (Local persistent client)
+│
+▼ (PyPDF / Slicing)
+[ Sliding-Window Chunking (600 chars, 120 overlap) ]
+│
+▼ (all-MiniLM-L6-v2)
+[ ChromaDB Vector Store ] ── (Cosine Similarity, k=12) ──┐
+│
+[ Technical User Query ] ───────────────────────────────┤
+▼
+[ Context Injection & Strict Guardrails ]
+│
+▼ (gemini-3.5-flash-lite)
+[ Grounded Answer + Slide Excerpt Audit ]
+---
 
-Embedding Model: sentence-transformers/all-MiniLM-L6-v2 (384-dimensional dense vectors)
+## Key Engineering Decisions
 
-LLM Engine: Google Gemini 3.5 Flash Lite (Low-latency structured REST transport)
+### 1. Zero-Hallucination Grounding & Refusal Guardrails
+Technical remote sensing data (e.g., aerosol optical depth, orbital mechanics, trace gas spectrometry) cannot tolerate generative hallucination. 
+- **System Instruction:** Constrains generation strictly to retrieved context passages.
+- **Out-of-Domain Detection:** Explicit refusal trigger (`"I cannot answer this based on the provided NASA ARSET course materials."`) whenever input falls outside indexed slides.
+- **Audit Traceability:** Side-by-side UI audit showing exact document names, page/slide numbers, and raw cosine match excerpts.
 
-Frontend / Evaluation UI: Streamlit
+### 2. Retrieval Depth Parameter Tuning ($k=6 \rightarrow k=12$)
+Cross-cutting queries (such as comparing Geostationary Earth Orbit [GEO] vs. Low Earth Orbit [LEO] sensor capabilities) require drawing facts across disparate slide decks and modules. 
+- Initial testing with bi-encoder cosine similarity at $k=6$ captured general introductory passages but omitted secondary orbital definitions.
+- Expanding baseline retrieval depth to **$k=12$** guaranteed full conceptual recall across multi-document boundaries while staying well within the context window limits.
 
-Document Parsing: PyMuPDF / LangChain Text Splitters
+### 3. Ephemeral Cloud Cold-Start Ingestion
+Deploying RAG systems to containerized cloud platforms (such as Streamlit Community Cloud) typically causes vector store failure because `.chromadb/` directories are excluded via `.gitignore`.
+- Designed an automated cold-start hook in `app.py` that detects empty collections on boot.
+- Triggers an automated, batched ingestion pipeline over source PDFs directly in ephemeral storage, ensuring zero-configuration cloud spins.
 
-Environment Security: python-dotenv (Zero hardcoded secrets; persistent .env injection)
+### 4. Production Inference Tier Stabilization
+Standardized all inference calls across CLI and UI on **`gemini-3.5-flash-lite`** with zero temperature ($T=0.0$), eliminating transient server-demand capacity issues (503s) and ensuring consistent token pricing and deterministic outputs.
 
-Grounding & Anti-Hallucination Protocol
-To meet the verification standards required for Earth Observation datasets, the system enforces a strict zero-hallucination policy:
+---
 
-Mandatory Refusal Boundary: If retrieved top-K excerpts contain insufficient evidence to resolve the query, the engine is constrained to return:
+## Repository Structure
 
-"I cannot answer this based on the provided NASA ARSET course materials."
-
-Deterministic Source Attribution: Every factual claim must append an exact document and slide/page citation (e.g., [NASA_ARSET_Course_Notes2.pdf p.8]).
-
-Dual-Column Auditability: The user interface features an interactive Source Excerpt Audit drawer alongside the generated response, allowing real-time inspection of raw retrieved text chunks and similarity distances.
-
-Empirical Retrieval Evaluation & Insights
-During stress-testing across 314 indexed document chunks, retrieval failure modes were audited to evaluate the trade-offs of dense semantic search:
-
-1. Semantic Drift in Multi-Entity Queries
-Scenario: Asking "What sensors on Terra and Aqua measure Aerosol Optical Depth?" failed at low K values (2 to 5), triggering the grounding refusal.
-
-Root Cause Analysis: The dense embedding was dominated by the high-weight technical phrase Aerosol Optical Depth, ranking theoretical physics chunks (extinction coefficients, radiation interaction) above the platform-specific instrument chunks. The instrument chunk mentioning MODIS on Terra/Aqua was located at Rank 6 (Distance: 0.3646).
-
-Resolution: Expanding the retrieval window to K=6 to 8 or aligning query focus to instrument terminology ("What instruments or sensors are on the Terra and Aqua satellites?") elevated the target chunk to Rank 1 and generated accurate citations.
-
-2. Lexical Inconsistency vs. In-Situ Contrasts
-Scenario: Asking for "globally consistent data" for air pollution health impacts triggered a refusal.
-
-Root Cause Analysis: The source materials framed the problem via contrast: describing ground stations as "inconsistent and spatially limited" and satellites as providing "broader spatial data coverage to fill gaps." The model accurately refused to infer terminology not supported by the retrieved context.
-
-Getting Started
-Prerequisites
-macOS / Linux / Windows
-
-Python 3.10+
-
-A valid Google Gemini API Key
-
-Installation
-Clone the repository:
-
-Bash
-git clone https://github.com/0DataDan/nasa-rag-engine.git
+```text
+nasa-rag-engine/
+├── data/                       # NASA ARSET slide deck source PDFs
+├── app.py                      # Production Streamlit UI with dual-column audit view
+├── query_engine.py             # CLI query runner and context retrieval module
+├── build_index.py              # Standalone ingestion and embedding pipeline
+├── ingest.py                   # PDF text extraction and sliding-window chunking
+├── requirements.txt            # Locked runtime dependencies
+└── README.md                   # System documentation and architecture breakdown
+Local Setup & Quickstart1. Clone & Set Up EnvironmentBashgit clone [https://github.com/0DataDan/nasa-rag-engine.git](https://github.com/0DataDan/nasa-rag-engine.git)
 cd nasa-rag-engine
-Set up a virtual environment:
-
-Bash
 python3 -m venv venv
 source venv/bin/activate
-(On Windows use: venv\Scripts\activate)
-
-Install dependencies:
-
-Bash
 pip install -r requirements.txt
-Configure environment variables:
-Create a .env file in the root directory:
-
-Bash
-echo 'GEMINI_API_KEY="your_api_key_here"' > .env
-Build the Local Vector Index:
-Course notes are pre-loaded in the data/ directory. Run the indexing pipeline to generate embeddings and populate the local ChromaDB store:
-
-Bash
-python build_index.py
-(Note: The first run downloads the ~90MB all-MiniLM-L6-v2 embedding weights from Hugging Face).
-
-Launch the Evaluation App:
-
-Bash
-streamlit run app.py
+2. Configure Environment KeysCreate a .env file in the root directory:BashGEMINI_API_KEY="your_actual_gemini_api_key"
+3. Build Vector StoreBashpython build_index.py
+4. Run the EngineCommand Line Interface:Bashpython query_engine.py "What instruments on Terra and Aqua measure Aerosol Optical Depth?"
+Interactive Web Application:Bashstreamlit run app.py
+Example Queries to TestQuery CategorySample PromptExpected System BehaviorSpectral Analysis"What wavelengths of light are absorbed by healthy vegetation?"Retrieves visible/NIR slide passages with chlorophyll absorption bands.Mission Specs"What instruments measure Aerosol Optical Depth?"Identifies MODIS (Aqua/Terra) and MAIAC algorithms with slide citations.Orbital Mechanics"Compare GEO vs LEO satellites for air quality tracking."Synthesizes temporal frequency vs. spatial resolution tradeoffs across modules.Negative Boundary"How do lithium-ion batteries function in electric vehicles?"Triggers refusal guardrail without generating synthetic facts.
